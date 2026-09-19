@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
+import { requirePipelineAuth } from "@/lib/auth/pipeline-auth";
 
-export async function GET() {
+// Developer/debugging endpoint. Not used by the dashboard, so it is behind
+// the pipeline secret rather than open to the internet.
+export async function GET(request: Request) {
+  const denied = requirePipelineAuth(request);
+  if (denied) return denied;
+
   try {
     const response = await fetch("https://wikenigma.org.uk/feed.php", {
       headers: {

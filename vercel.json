@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/pipeline/run",
+      "schedule": "0 6 * * *"
+    }
+  ],
+  "functions": {
+    "app/api/pipeline/run/route.ts": {
+      "maxDuration": 300
+    }
+  }
+}

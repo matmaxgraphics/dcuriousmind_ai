@@ -36,10 +36,10 @@ export async function extractArticle(
   }
 
   const extracted: ExtractedArticle = {
-    title: article.title,
+    title: article.title || "",
     url,
     source: new URL(url).hostname,
-    content: article.textContent,
+    content: article.textContent || "",
     excerpt: article.excerpt ?? undefined,
     author: article.byline ?? undefined,
   };

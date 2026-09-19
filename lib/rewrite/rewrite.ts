@@ -1,7 +1,7 @@
 import { openai, DEFAULT_AI_MODEL } from "@/lib/ai/client";
 import { getWritingRules } from "./prompt";
 
-interface RewriteResult {
+export interface RewriteResult {
   question: string;
   explanation: string;
   interestingDetail: string;
