@@ -17,7 +17,9 @@ export type StageName =
 
 export type StageOutcome<T> =
   | { status: "ok"; result: T }
-  | { status: "failed"; error: string };
+  | { status: "failed"; error: string }
+  /** Not started: the run budget was nearly spent. Not a failure. */
+  | { status: "skipped"; reason: string };
 
 export interface PipelineRunResult {
   /** True only when every stage completed. */
@@ -160,8 +162,8 @@ export async function runPipeline(
       skippedForTime.push(name);
 
       return {
-        status: "failed",
-        error: "Skipped: insufficient time left in the run budget.",
+        status: "skipped",
+        reason: "Not enough time left in the run budget; still queued.",
       };
     }
 
@@ -205,11 +207,7 @@ export async function runPipeline(
       ["rewrite", rewrite],
     ] as const
   )
-    .filter(
-      ([name, outcome]) =>
-        outcome.status === "failed" &&
-        !skippedForTime.includes(name as StageName)
-    )
+    .filter(([, outcome]) => outcome.status === "failed")
     .map(([name]) => name as StageName);
 
   const durationMs = finishedAt.getTime() - startedAt.getTime();
