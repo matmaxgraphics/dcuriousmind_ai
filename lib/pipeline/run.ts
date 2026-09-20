@@ -82,9 +82,12 @@ function countOf<T, K extends keyof T>(
  * 15-minute stale reclaim. So stages stop voluntarily with headroom to spare
  * and leave the rest queued; the next run picks it up.
  *
- * Kept below the route's maxDuration (120s), not equal to it.
+ * Set for a 60s ceiling, not the 120s the route asks for: a route-segment
+ * maxDuration above the plan limit is clamped silently, so the budget has to
+ * fit the smaller of the two. Raise it via PIPELINE_BUDGET_MS once a run's
+ * recorded duration proves the larger limit is honoured.
  */
-const RUN_BUDGET_MS = Number(process.env.PIPELINE_BUDGET_MS ?? 95_000);
+const RUN_BUDGET_MS = Number(process.env.PIPELINE_BUDGET_MS ?? 50_000);
 
 async function runStage<T>(
   name: StageName,

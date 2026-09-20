@@ -17,7 +17,7 @@ export interface ExtractionItemResult {
  * and be killed mid-run.
  */
 const MAX_EXTRACTIONS_PER_RUN = Number(
-  process.env.MAX_EXTRACTIONS_PER_RUN ?? 5
+  process.env.MAX_EXTRACTIONS_PER_RUN ?? 3
 );
 
 export interface ExtractionResult {
