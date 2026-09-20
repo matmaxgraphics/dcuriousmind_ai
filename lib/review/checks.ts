@@ -43,8 +43,14 @@ export interface DraftChecks {
   checkedAt: string;
 }
 
-/** Source text sent for verification. Enough for context, bounded for cost. */
-const MAX_SOURCE_CHARS = 8000;
+/**
+ * Source text sent for verification.
+ *
+ * Kept below the rewriter's own cap: these two checks run immediately after
+ * the rewrite and share the same 8,000 tokens-per-minute ceiling, so three
+ * large requests in quick succession trip it even when each is legal alone.
+ */
+const MAX_SOURCE_CHARS = 5000;
 
 /**
  * A draft is stored as four fields but read as one piece of writing.
