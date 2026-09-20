@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase/server";
 import { extractArticle } from "@/lib/extractor/article";
 import { validateExtractedArticle } from "@/lib/extractor/validate";
 import { saveExtractedContent } from "@/lib/db/articles";
+import { noDeadline, type Deadline } from "./deadline";
 
 export interface ExtractionItemResult {
   id: string;
@@ -27,13 +28,19 @@ export interface ExtractionResult {
   results: ExtractionItemResult[];
 }
 
-export async function runExtraction(): Promise<ExtractionResult> {
+/** Rough cost of one fetch + parse. */
+const EXTRACT_RESERVE_MS = 8_000;
+
+export async function runExtraction(
+  deadline: Deadline = noDeadline()
+): Promise<ExtractionResult> {
   console.log("[pipeline] Starting extraction");
 
   const { data: articles, error } = await supabase
     .from("articles")
     .select("id, title, url")
     .eq("status", "selected")
+    .order("discovered_at", { ascending: true })
     .limit(MAX_EXTRACTIONS_PER_RUN);
 
   if (error) {
@@ -53,6 +60,13 @@ export async function runExtraction(): Promise<ExtractionResult> {
   const results: ExtractionItemResult[] = [];
 
   for (const article of articles) {
+    if (deadline.expired(EXTRACT_RESERVE_MS)) {
+      console.log(
+        "[pipeline] Extraction stopping early — run budget nearly spent"
+      );
+      break;
+    }
+
     try {
       const extracted = await extractArticle(article.url);
 

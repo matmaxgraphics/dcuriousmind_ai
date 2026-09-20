@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase/server";
 import { scoreTopic } from "@/lib/selection/score";
 import { saveTopicScore } from "@/lib/db/topic-scores";
 import { decideSelection } from "@/lib/selection/decide";
+import { noDeadline, type Deadline } from "./deadline";
 
 export interface ScoringArticleResult {
   articleId: string;
@@ -29,7 +30,12 @@ const MAX_ARTICLES_PER_RUN = Number(
   process.env.MAX_ARTICLES_PER_SCORING_RUN ?? 5
 );
 
-export async function runScoring(): Promise<ScoringResult> {
+/** Rough cost of scoring one article, allowing for rate-limit backoff. */
+const SCORE_RESERVE_MS = 12_000;
+
+export async function runScoring(
+  deadline: Deadline = noDeadline()
+): Promise<ScoringResult> {
   console.log("[pipeline] Starting scoring");
 
   // Count what is waiting so the result can report what was deferred.
@@ -78,6 +84,13 @@ export async function runScoring(): Promise<ScoringResult> {
   let errorCount = 0;
 
   for (const article of articles) {
+    if (deadline.expired(SCORE_RESERVE_MS)) {
+      console.log(
+        "[pipeline] Scoring stopping early — run budget nearly spent"
+      );
+      break;
+    }
+
     try {
       const score = await scoreTopic({
         title: article.title,

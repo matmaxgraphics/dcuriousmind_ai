@@ -7,6 +7,7 @@ import {
   finishRun,
   type PipelineTrigger,
 } from "@/lib/db/pipeline-runs";
+import { createDeadline } from "./deadline";
 
 export type StageName =
   | "discovery"
@@ -87,7 +88,7 @@ function countOf<T, K extends keyof T>(
  * fit the smaller of the two. Raise it via PIPELINE_BUDGET_MS once a run's
  * recorded duration proves the larger limit is honoured.
  */
-const RUN_BUDGET_MS = Number(process.env.PIPELINE_BUDGET_MS ?? 50_000);
+const RUN_BUDGET_MS = Number(process.env.PIPELINE_BUDGET_MS ?? 105_000);
 
 async function runStage<T>(
   name: StageName,
@@ -133,7 +134,11 @@ export async function runPipeline(
   }
 
   const startedAt = new Date();
-  const deadline = startedAt.getTime() + RUN_BUDGET_MS;
+
+  // One budget, shared by the runner and every stage. Stages also check it
+  // between items, because how long a stage takes depends on rate-limit
+  // backoff rather than on how many items it was given.
+  const deadline = createDeadline(RUN_BUDGET_MS);
 
   const skippedForTime: StageName[] = [];
 
@@ -143,7 +148,7 @@ export async function runPipeline(
     stage: () => Promise<T>,
     reserveMs: number
   ): Promise<StageOutcome<T>> => {
-    if (Date.now() + reserveMs > deadline) {
+    if (deadline.expired(reserveMs)) {
       console.warn(
         `[pipeline] Skipping "${name}" — not enough time left in the run budget`
       );
@@ -161,9 +166,17 @@ export async function runPipeline(
 
   // Reserves are rough lower bounds for "can this stage do anything useful".
   const discovery = await stageIfTime("discovery", runDiscovery, 20_000);
-  const scoring = await stageIfTime("scoring", runScoring, 10_000);
-  const extraction = await stageIfTime("extraction", runExtraction, 8_000);
-  const rewrite = await stageIfTime("rewrite", runRewrite, 25_000);
+  const scoring = await stageIfTime("scoring", () => runScoring(deadline), 12_000);
+  const extraction = await stageIfTime(
+    "extraction",
+    () => runExtraction(deadline),
+    8_000
+  );
+  const rewrite = await stageIfTime(
+    "rewrite",
+    () => runRewrite(deadline),
+    30_000
+  );
 
   const finishedAt = new Date();
 

@@ -43,7 +43,7 @@ export async function rewriteArticle(article: {
       article.title,
       "",
       "SOURCE:",
-      article.content,
+      article.content.slice(0, MAX_SOURCE_CHARS),
     ].join("\n")
   );
 }

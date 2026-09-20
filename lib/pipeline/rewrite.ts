@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase/server";
 import { rewriteArticle } from "@/lib/rewrite/rewrite";
 import { saveDraft, getDraftByArticleId } from "@/lib/db/drafts";
 import { checkDraft } from "@/lib/review/checks";
+import { noDeadline, type Deadline } from "./deadline";
 
 export interface RewriteItemResult {
   id: string;
@@ -19,7 +20,10 @@ export interface RewriteItemResult {
  * an uncapped run can exhaust on its own. Whatever is not drafted stays in
  * `extracted` and is picked up by the next run.
  */
-const MAX_DRAFTS_PER_RUN = Number(process.env.MAX_DRAFTS_PER_RUN ?? 1);
+const MAX_DRAFTS_PER_RUN = Number(process.env.MAX_DRAFTS_PER_RUN ?? 3);
+
+/** Rough cost of one draft: rewrite + fact check + quality check, with backoff. */
+const DRAFT_RESERVE_MS = 30_000;
 
 export interface RewriteResult {
   rewritten: number;
@@ -29,13 +33,20 @@ export interface RewriteResult {
   results: RewriteItemResult[];
 }
 
-export async function runRewrite(): Promise<RewriteResult> {
+export async function runRewrite(
+  deadline: Deadline = noDeadline()
+): Promise<RewriteResult> {
   console.log("[pipeline] Starting rewrite");
 
   const { data: articles, error } = await supabase
     .from("articles")
     .select("id, title, content")
     .eq("status", "extracted")
+    // Oldest first. Without an explicit order Postgres returns rows in a
+    // stable arbitrary order, so a single article that always fails is
+    // selected on every run and blocks everything behind it forever — which
+    // is exactly what happened with one 413-ing article and a cap of 1.
+    .order("discovered_at", { ascending: true })
     .limit(MAX_DRAFTS_PER_RUN);
 
   if (error) {
@@ -56,6 +67,13 @@ export async function runRewrite(): Promise<RewriteResult> {
   const results: RewriteItemResult[] = [];
 
   for (const article of articles) {
+    if (deadline.expired(DRAFT_RESERVE_MS)) {
+      console.log(
+        "[pipeline] Rewrite stopping early — run budget nearly spent"
+      );
+      break;
+    }
+
     try {
       if (!article.content?.trim()) {
         results.push({
