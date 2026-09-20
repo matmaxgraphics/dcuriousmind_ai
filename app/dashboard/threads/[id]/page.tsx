@@ -429,7 +429,7 @@ export default function ThreadEditorPage({
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-3.5 py-2 text-sm font-bold text-zinc-900 focus:border-zinc-400 focus:bg-white focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+          className="w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-3.5 py-2 text-sm font-bold text-zinc-900 focus:border-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:border-zinc-600 dark:focus:bg-zinc-900 dark:focus:ring-zinc-100/10 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
         />
       </div>
 
@@ -523,7 +523,7 @@ export default function ThreadEditorPage({
                 value={tweet.text}
                 onChange={(e) => handleTweetChange(idx, e.target.value)}
                 placeholder={`Tweet ${idx + 1} content...`}
-                className="w-full rounded-lg border border-zinc-200 bg-zinc-50/50 p-3 text-sm text-zinc-900 placeholder-zinc-400 leading-relaxed focus:border-zinc-400 focus:bg-white focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+                className="w-full rounded-lg border border-zinc-200 bg-zinc-50/50 p-3 text-sm text-zinc-900 placeholder-zinc-400 leading-relaxed focus:border-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:border-zinc-600 dark:focus:bg-zinc-900 dark:focus:ring-zinc-100/10 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
               />
             </div>
           );

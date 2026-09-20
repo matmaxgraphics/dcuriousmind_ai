@@ -333,7 +333,7 @@ export default function DraftEditorPage({
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="Why do..."
-                className="w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:bg-white focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+                className="w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:border-zinc-600 dark:focus:bg-zinc-900 dark:focus:ring-zinc-100/10 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
               />
               <p className="text-[11px] text-zinc-400">
                 The high-curiosity question that stops readers from scrolling.
@@ -350,7 +350,7 @@ export default function DraftEditorPage({
                 value={explanation}
                 onChange={(e) => setExplanation(e.target.value)}
                 placeholder="The detailed, simplified explanation..."
-                className="w-full rounded-lg border border-zinc-200 bg-zinc-50/50 p-3.5 text-sm text-zinc-800 placeholder-zinc-400 leading-relaxed focus:border-zinc-400 focus:bg-white focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200"
+                className="w-full rounded-lg border border-zinc-200 bg-zinc-50/50 p-3.5 text-sm text-zinc-800 placeholder-zinc-400 leading-relaxed focus:border-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:border-zinc-600 dark:focus:bg-zinc-900 dark:focus:ring-zinc-100/10 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200"
               />
               <p className="text-[11px] text-zinc-400">
                 Clear, jargon-free explanation written in the d_CuriousMind tone.
@@ -367,7 +367,7 @@ export default function DraftEditorPage({
                 value={interestingDetail}
                 onChange={(e) => setInterestingDetail(e.target.value)}
                 placeholder="An extra surprising fact or detail..."
-                className="w-full rounded-lg border border-zinc-200 bg-zinc-50/50 p-3 text-sm text-zinc-800 placeholder-zinc-400 focus:border-zinc-400 focus:bg-white focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200"
+                className="w-full rounded-lg border border-zinc-200 bg-zinc-50/50 p-3 text-sm text-zinc-800 placeholder-zinc-400 focus:border-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:border-zinc-600 dark:focus:bg-zinc-900 dark:focus:ring-zinc-100/10 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200"
               />
             </div>
 
@@ -381,7 +381,7 @@ export default function DraftEditorPage({
                 value={takeaway}
                 onChange={(e) => setTakeaway(e.target.value)}
                 placeholder="The essential takeaway for the reader..."
-                className="w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:bg-white focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+                className="w-full rounded-lg border border-zinc-200 bg-zinc-50/50 px-3.5 py-2.5 text-sm font-semibold text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:border-zinc-600 dark:focus:bg-zinc-900 dark:focus:ring-zinc-100/10 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
               />
             </div>
           </div>
