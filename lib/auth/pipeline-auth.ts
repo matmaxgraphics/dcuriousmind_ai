@@ -14,14 +14,22 @@ export type AuthFailure =
 
 export type AuthResult = { ok: true } | AuthFailure;
 
-function configuredSecret(): string | undefined {
-  // PIPELINE_SECRET is ours. CRON_SECRET is the name Vercel Cron injects as
-  // `Authorization: Bearer <value>` automatically, so supporting it means the
-  // scheduler needs no extra wiring.
-  const secret =
-    process.env.PIPELINE_SECRET ?? process.env.CRON_SECRET;
-
-  return secret && secret.length > 0 ? secret : undefined;
+/**
+ * Every secret a caller may legitimately present.
+ *
+ * PIPELINE_SECRET is ours, for manual and scripted runs. CRON_SECRET is the
+ * name Vercel Cron injects as `Authorization: Bearer <value>` automatically.
+ *
+ * ANY of them is accepted, deliberately. An earlier version preferred
+ * PIPELINE_SECRET and ignored CRON_SECRET when both were set — so with two
+ * different values configured, Vercel Cron authenticated with CRON_SECRET,
+ * got 401, and the scheduled run silently never happened. Precedence is the
+ * wrong model here: these are alternative credentials, not a fallback chain.
+ */
+function configuredSecrets(): string[] {
+  return [process.env.PIPELINE_SECRET, process.env.CRON_SECRET].filter(
+    (secret): secret is string => Boolean(secret && secret.length > 0)
+  );
 }
 
 function equals(a: string, b: string): boolean {
@@ -35,9 +43,9 @@ function equals(a: string, b: string): boolean {
 }
 
 export function authorizePipelineRequest(request: Request): AuthResult {
-  const secret = configuredSecret();
+  const secrets = configuredSecrets();
 
-  if (!secret) {
+  if (secrets.length === 0) {
     return { ok: false, reason: "unconfigured" };
   }
 
@@ -49,7 +57,13 @@ export function authorizePipelineRequest(request: Request): AuthResult {
 
   const presented = header.slice("Bearer ".length).trim();
 
-  if (!presented || !equals(presented, secret)) {
+  // Compare against every configured secret. `equals` is constant-time, and
+  // checking all of them regardless of an early match keeps it that way.
+  const matched = secrets
+    .map((secret) => equals(presented, secret))
+    .some(Boolean);
+
+  if (!presented || !matched) {
     return { ok: false, reason: "unauthorized" };
   }
 
@@ -64,7 +78,7 @@ export function authorizePipelineRequest(request: Request): AuthResult {
 export function authFailureResponse(failure: AuthFailure): Response {
   if (failure.reason === "unconfigured") {
     console.error(
-      "[auth] PIPELINE_SECRET (or CRON_SECRET) is not set — refusing to run the pipeline."
+      "[auth] Neither PIPELINE_SECRET nor CRON_SECRET is set — refusing to run the pipeline."
     );
 
     return Response.json(

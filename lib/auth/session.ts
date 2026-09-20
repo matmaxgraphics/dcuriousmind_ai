@@ -156,16 +156,22 @@ export function requireEditor(request: Request): Response | null {
     return null;
   }
 
+  // Either configured secret is accepted, matching authorizePipelineRequest.
+  // Treating one as taking precedence meant a scheduler signing with the
+  // other was rejected.
   const bearer = request.headers.get("authorization");
-  const pipelineSecret =
-    process.env.PIPELINE_SECRET ?? process.env.CRON_SECRET;
 
-  if (
-    bearer?.startsWith("Bearer ") &&
-    pipelineSecret &&
-    safeEquals(bearer.slice("Bearer ".length).trim(), pipelineSecret)
-  ) {
-    return null;
+  if (bearer?.startsWith("Bearer ")) {
+    const presented = bearer.slice("Bearer ".length).trim();
+
+    const accepted = [process.env.PIPELINE_SECRET, process.env.CRON_SECRET]
+      .filter((secret): secret is string => Boolean(secret))
+      .map((secret) => safeEquals(presented, secret))
+      .some(Boolean);
+
+    if (presented && accepted) {
+      return null;
+    }
   }
 
   return Response.json(
