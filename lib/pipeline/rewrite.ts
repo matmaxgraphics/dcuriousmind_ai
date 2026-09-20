@@ -25,6 +25,22 @@ const MAX_DRAFTS_PER_RUN = Number(process.env.MAX_DRAFTS_PER_RUN ?? 3);
 /** Rough cost of one draft: rewrite + fact check + quality check, with backoff. */
 const DRAFT_RESERVE_MS = 30_000;
 
+/**
+ * Was this a rate limit rather than a real failure?
+ *
+ * On the free tier a deferral is normal traffic shaping: the article stays
+ * queued and the next run picks it up. Counting it as an error would mark
+ * every run "partial" and make the dashboard's status worthless — the panel
+ * should flag runs that need attention, not runs that behaved correctly.
+ */
+function isRateLimitDeferral(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return /rate limit|429|asked for a .* wait|request too large|tokens per/i.test(
+    message
+  );
+}
+
 export interface RewriteResult {
   rewritten: number;
   deferred: number;
@@ -115,7 +131,7 @@ export async function runRewrite(
 
       // Automated review. Never throws, so a check failure cannot cost us
       // the draft we just paid to generate.
-      const checks = await checkDraft(draft, article.content);
+      const checks = await checkDraft(draft, article.content, deadline);
 
       const saved = await saveDraft(article.id, draft, checks);
 
@@ -133,11 +149,16 @@ export async function runRewrite(
         draftId: saved.id,
       });
     } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+
       results.push({
         id: article.id,
         title: article.title,
-        status: "error",
-        error: err instanceof Error ? err.message : "Unknown error",
+        status: isRateLimitDeferral(err) ? "skipped" : "error",
+        reason: isRateLimitDeferral(err)
+          ? "Deferred by a provider rate limit; still queued."
+          : undefined,
+        error: message,
       });
     }
   }

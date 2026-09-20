@@ -1,6 +1,7 @@
 import { generateJson } from "@/lib/ai/json";
 import { loadPrompt, loadRule, composePrompt } from "@/lib/prompts/load";
 import type { RewriteResult } from "@/lib/rewrite/rewrite";
+import { noDeadline, type Deadline } from "@/lib/pipeline/deadline";
 
 /**
  * Automated review of a freshly generated draft.
@@ -158,15 +159,37 @@ export async function runQualityCheck(
   }
 }
 
-/** Runs both checks. Never throws. */
+/** Roughly what one check costs, including a retry. */
+const CHECK_RESERVE_MS = 22_000;
+
+/**
+ * Runs both checks. Never throws.
+ *
+ * Skips a check when the run budget cannot afford it. These are advisory and
+ * the draft is the deliverable: losing the draft to a check that overran the
+ * budget would be exactly backwards. A skipped check is visible in the
+ * dashboard as "Not run", so nothing is silently unverified.
+ */
 export async function checkDraft(
   draft: RewriteResult,
-  sourceContent: string
+  sourceContent: string,
+  deadline: Deadline = noDeadline()
 ): Promise<DraftChecks> {
+  const skipped = (reason: string) => ({
+    verdict: "skipped" as const,
+    issues: [],
+    error: reason,
+  });
+
   // Sequential rather than parallel: the AI provider's rate limit is per
   // minute across all calls, and firing both at once reliably trips it.
-  const factCheck = await runFactCheck(draft, sourceContent);
-  const qualityCheck = await runQualityCheck(draft);
+  const factCheck = deadline.expired(CHECK_RESERVE_MS)
+    ? skipped("Skipped: not enough time left in the run budget.")
+    : await runFactCheck(draft, sourceContent);
+
+  const qualityCheck = deadline.expired(CHECK_RESERVE_MS)
+    ? skipped("Skipped: not enough time left in the run budget.")
+    : await runQualityCheck(draft);
 
   return {
     factCheck,

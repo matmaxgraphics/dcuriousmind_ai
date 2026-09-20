@@ -83,12 +83,16 @@ function countOf<T, K extends keyof T>(
  * 15-minute stale reclaim. So stages stop voluntarily with headroom to spare
  * and leave the rest queued; the next run picks it up.
  *
- * Set for a 60s ceiling, not the 120s the route asks for: a route-segment
- * maxDuration above the plan limit is clamped silently, so the budget has to
- * fit the smaller of the two. Raise it via PIPELINE_BUDGET_MS once a run's
- * recorded duration proves the larger limit is honoured.
+ * A cron run with a 105s budget was killed mid-flight and left its row stuck
+ * in 'running' — proof that the platform ceiling is well below the 120s the
+ * route asks for, and that a route-segment maxDuration above the plan limit
+ * is clamped silently. 45s fits comfortably inside a 60s ceiling.
+ *
+ * Raise it via PIPELINE_BUDGET_MS only after a run's RECORDED duration proves
+ * a larger limit is honoured. A run that finishes is worth more than a run
+ * that attempts more and dies.
  */
-const RUN_BUDGET_MS = Number(process.env.PIPELINE_BUDGET_MS ?? 105_000);
+const RUN_BUDGET_MS = Number(process.env.PIPELINE_BUDGET_MS ?? 45_000);
 
 async function runStage<T>(
   name: StageName,
@@ -164,19 +168,32 @@ export async function runPipeline(
     return runStage(name, stage);
   };
 
+  // Stages run MOST-ADVANCED FIRST, deliberately.
+  //
+  // The obvious order — discover, score, extract, rewrite — starves the only
+  // stage that produces something you can publish: rewrite runs last, and on
+  // a tight budget there is never time left for it. Three cron runs produced
+  // zero drafts that way while the backlog kept growing.
+  //
+  // Draining first is also self-balancing. When there is a backlog, rewrite
+  // uses the budget and discovery is skipped, which is correct — adding more
+  // raw articles to a queue you cannot drain is pure cost. When the backlog
+  // is empty, each drain stage returns immediately with nothing to do and the
+  // budget falls through to discovery, refilling the funnel.
+  //
   // Reserves are rough lower bounds for "can this stage do anything useful".
-  const discovery = await stageIfTime("discovery", runDiscovery, 20_000);
-  const scoring = await stageIfTime("scoring", () => runScoring(deadline), 12_000);
-  const extraction = await stageIfTime(
-    "extraction",
-    () => runExtraction(deadline),
-    8_000
-  );
   const rewrite = await stageIfTime(
     "rewrite",
     () => runRewrite(deadline),
     30_000
   );
+  const extraction = await stageIfTime(
+    "extraction",
+    () => runExtraction(deadline),
+    8_000
+  );
+  const scoring = await stageIfTime("scoring", () => runScoring(deadline), 12_000);
+  const discovery = await stageIfTime("discovery", runDiscovery, 20_000);
 
   const finishedAt = new Date();
 

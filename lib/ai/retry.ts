@@ -8,8 +8,11 @@
  * rather than surfaced as an error.
  */
 
-const MAX_ATTEMPTS = 4;
+const MAX_ATTEMPTS = 3;
 const BASE_DELAY_MS = 1000;
+
+/** Never wait longer than this for a retry; the run budget is finite. */
+const MAX_BACKOFF_MS = 8_000;
 
 interface MaybeApiError {
   status?: number;
@@ -62,8 +65,21 @@ export async function withAiRetry<T>(
 
       // Add a little headroom over the provider's estimate: retrying at
       // exactly the stated moment tends to trip the limit again.
-      const delay =
-        (suggestedDelayMs(error) ?? BASE_DELAY_MS * 2 ** (attempt - 1)) + 250;
+      // Providers sometimes ask for a wait longer than the whole run budget.
+      // Waiting it out inside a serverless function just burns the budget and
+      // gets the run killed; better to give up and let the next run retry.
+      const requested =
+        suggestedDelayMs(error) ?? BASE_DELAY_MS * 2 ** (attempt - 1);
+
+      if (requested > MAX_BACKOFF_MS) {
+        console.warn(
+          `[ai] ${label} asked for a ${Math.round(requested / 1000)}s wait — abandoning, the next run will retry`
+        );
+
+        throw error;
+      }
+
+      const delay = requested + 250;
 
       console.warn(
         `[ai] ${label} attempt ${attempt} hit a rate limit or transient error; retrying in ${delay}ms`

@@ -31,6 +31,16 @@ export const DEFAULT_AI_MODEL =
 export const openai = new OpenAI({
   apiKey,
   baseURL,
+
+  // A run that overruns its budget gets killed by the platform without
+  // releasing the run lock, so no single request may be open-ended.
+  //
+  // The SDK defaults to a 10 MINUTE timeout and 2 internal retries. Combined
+  // with withAiRetry's own attempts that is up to 8 requests and effectively
+  // unbounded time: one draft attempt measured 74.9s against a 45s budget.
+  // Retries are handled in one place — withAiRetry — so the SDK does none.
+  timeout: 20_000,
+  maxRetries: 0,
 });
 
 export async function generateCompletion(

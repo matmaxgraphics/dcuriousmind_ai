@@ -15,11 +15,12 @@ import {
 // response can never be served in place of an actual run.
 
 export const dynamic = "force-dynamic";
-// 300 exceeds this Vercel plan's limit: the function then fails to
-// initialise and every request returns an empty 500 before any code runs.
-// 120 is verified to load on this account. Raise only after confirming the
-// plan allows it.
-export const maxDuration = 120;
+// A cron run budgeted at 105s was killed before it could record its outcome,
+// so the effective ceiling is below 120 regardless of what is requested here.
+// Asking for 60 states the real contract rather than one that gets clamped.
+// The run budget (PIPELINE_BUDGET_MS, 45s) is what actually keeps runs inside
+// it — a killed function cannot release the run lock.
+export const maxDuration = 60;
 
 async function handle(request: Request) {
   const auth = authorizePipelineRequest(request);
