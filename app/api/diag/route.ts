@@ -3,10 +3,11 @@ import { NextResponse } from "next/server";
 /**
  * TEMPORARY DIAGNOSTIC — delete this file once the deployment is healthy.
  *
- * Every route that imports jsdom returns an empty 500 in production while
- * working in local dev, and the failure happens before any application code
- * runs, so nothing reaches the response body. This endpoint loads the
- * suspect modules one at a time inside try/catch and reports what breaks.
+ * Routes that imported jsdom returned an empty 500 in production while
+ * working in local dev, failing before any application code ran so nothing
+ * reached the response body. This endpoint loads the suspect modules one at
+ * a time inside try/catch and reports what breaks. jsdom has since been
+ * replaced by linkedom; this verifies the replacement loads.
  *
  * Deliberately unauthenticated, because the auth layer itself is one of the
  * things being verified. It reports only WHETHER each secret is present —
@@ -36,7 +37,7 @@ async function probe(
 
 export async function GET() {
   const modules = [
-    await probe("jsdom", () => import("jsdom")),
+    await probe("linkedom", () => import("linkedom")),
     await probe("@mozilla/readability", () => import("@mozilla/readability")),
     await probe("cheerio", () => import("cheerio")),
     await probe("rss-parser", () => import("rss-parser")),
