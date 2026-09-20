@@ -22,6 +22,7 @@ export async function GET(
         explanation,
         interesting_detail,
         takeaway,
+        checks,
         created_at,
         updated_at,
         articles (

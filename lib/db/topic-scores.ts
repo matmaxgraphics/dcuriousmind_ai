@@ -11,6 +11,8 @@ export async function saveTopicScore(
     .insert({
       article_id: articleId,
 
+      phenomenon_type: score.phenomenonType,
+
       interestingness: score.interestingness,
       curiosity_gap: score.curiosityGap,
       everyday_relevance: score.everydayRelevance,

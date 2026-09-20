@@ -1,102 +1,139 @@
-import { openai, DEFAULT_AI_MODEL } from "@/lib/ai/client";
 
 import type { DiscoveredArticle } from "@/lib/discovery/types";
 import type { TopicScore } from "./types";
+import { computeOverall } from "./decide";
+import { generateJson } from "@/lib/ai/json";
 
-export async function scoreTopic(
-  article: Pick<
-    DiscoveredArticle,
-    "title" | "excerpt"
-  >
-): Promise<TopicScore> {
-  const response = await openai.responses.create({
-    model: DEFAULT_AI_MODEL,
-
-    input: [
-      {
-        role: "system",
-        content: `
+const SYSTEM_PROMPT = `
 You are the editorial topic selector for d_CuriousMind.
 
-Your job is to determine whether a topic is worth turning
-into a d_CuriousMind post.
+d_CuriousMind answers questions people never thought needed
+answering. The reaction we want is:
 
-d_CuriousMind explains things people observe but rarely
-question.
+  "Whoa. I've seen that a thousand times and never once
+   wondered why."
 
-We are NOT asking:
+The test that matters most:
 
-"Is this scientifically interesting?"
+  HAS THE READER PERSONALLY WITNESSED THIS THING?
 
-We are asking:
+Not "is this interesting". Not "is this important science".
+Has an ordinary person seen it, felt it, or heard it with
+their own senses, and never stopped to question it?
 
-"Would someone stop scrolling and think,
-"I've never wondered about that"?"
+TOPICS WE WANT (real examples of our published work):
 
-Score the topic from 1 to 10 on each dimension:
+- Why do roosters crow — and why also in the afternoon?
+- Why do we shiver when we are cold?
+- Does fire cast a shadow?
+- Why does ice crack when you pour water on it?
 
-- interestingness
-- curiosityGap
-- everydayRelevance
-- surpriseFactor
-- explainability
+Notice what these share: the reader has seen every one of
+them. The phenomenon is ordinary. Only the explanation is
+surprising.
 
-Then calculate an overall score from 1 to 10.
+TOPICS WE DO NOT WANT (real examples we wrongly accepted):
 
-Scoring guidance:
+- "The Brain May Be Two Organs, a Discovery That Could
+   Advance ALS Research"
+- "Cub Found in Bolivia Helped Uncover the First New Cat
+   Species Named in Over a Century"
+- "9-Million-Year-Old Capybara Tooth Hints at Wet Conditions
+   in the Ancient Atacama Desert"
+- "A Herd of 40 Life-Size Bison Puppets Will Stampede
+   Through New York"
 
-interestingness:
-How inherently interesting is the subject?
+These are genuinely fascinating. They are still WRONG for us.
+They report something new to the world rather than explain
+something familiar to the reader. Nobody has personally
+witnessed a capybara tooth or a new cat species. Unless
+someone is already a science nerd, none of these make them
+stop scrolling.
 
-curiosityGap:
-How strongly does the topic create a gap between
-what someone assumes and what is actually happening?
+A discovery being remarkable is not a reason to select it.
 
-everydayRelevance:
-How connected is this to things ordinary people
-see, experience, or encounter?
+FIRST, classify the topic:
 
-surpriseFactor:
-How surprising is the explanation likely to be?
+  "everyday_phenomenon"
+     Something the reader has seen, felt or heard themselves.
+     Rain, sleep, food, animals they encounter, their own
+     body, household objects, weather, sounds, light.
 
-explainability:
-Can the idea be explained clearly in a short thread?
+  "discovery_news"
+     A new study, finding, species, excavation, invention,
+     announcement or event. Anything framed as news, or as
+     researchers discovering something. Choose this whenever
+     the topic is a report of something new.
 
-A strong d_CuriousMind topic usually has a strong
-curiosity gap and can be explained without excessive
-technical detail.
+  "general_interest"
+     Interesting and broadly familiar, but not a phenomenon
+     the reader has personally observed.
 
-Do not reward a topic merely because it is academically
-important.
+Be strict. If a headline reads like news, it is
+discovery_news, however fascinating the underlying idea.
+
+THEN score each dimension from 1 to 10:
+
+interestingness
+  How inherently interesting is the subject?
+
+curiosityGap
+  How big is the gap between what the reader assumes and
+  what is actually true? A topic where they hold a wrong
+  everyday assumption scores highest.
+
+everydayRelevance
+  THE MOST IMPORTANT DIMENSION. How certain is it that the
+  reader has personally encountered this?
+    9-10 = they have definitely seen or felt it (shivering,
+           ice cracking, a rooster crowing)
+    7-8  = most people have encountered it
+    4-6  = only some people, or only via media
+    1-3  = they have never encountered it directly
+  A laboratory finding, fossil, or distant event is 1-3
+  however famous it is.
+
+surpriseFactor
+  How surprising will the explanation be?
+
+explainability
+  Can this be explained clearly in a short thread without
+  technical background?
+
+Do NOT compute an overall score. It is calculated separately.
 
 Return JSON only:
 
 {
+  "phenomenonType": "everyday_phenomenon" | "discovery_news" | "general_interest",
   "interestingness": number,
   "curiosityGap": number,
   "everydayRelevance": number,
   "surpriseFactor": number,
   "explainability": number,
-  "overall": number,
-  "reason": "short editorial explanation"
+  "reason": "one or two sentences: has the reader witnessed this, and what is the curiosity gap?"
 }
 
-Do not invent information that is not present in the
-title or excerpt.
-        `,
-      },
-      {
-        role: "user",
-        content: `
-TITLE:
-${article.title}
+Do not invent information that is not present in the title
+or excerpt.
+`;
 
-EXCERPT:
-${article.excerpt ?? "No excerpt available."}
-        `,
-      },
-    ],
-  });
+export async function scoreTopic(
+  article: Pick<DiscoveredArticle, "title" | "excerpt">
+): Promise<TopicScore> {
+  const parsed = await generateJson<TopicScore>(
+    `score "${article.title.slice(0, 40)}"`,
+    SYSTEM_PROMPT,
+    [
+      "TITLE:",
+      article.title,
+      "",
+      "EXCERPT:",
+      article.excerpt ?? "No excerpt available.",
+    ].join("\n")
+  );
 
-  return JSON.parse(response.output_text) as TopicScore;
+  // The model is not trusted to weigh its own dimensions — that is exactly
+  // how everyday relevance got outvoted before.
+  return { ...parsed, overall: computeOverall(parsed) };
 }

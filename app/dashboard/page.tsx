@@ -219,7 +219,7 @@ export default function OverviewPage() {
         ) : queue.length === 0 ? (
           <EmptyState
             title="No topics in queue yet"
-            description="Run discovery to bring new Wikenigma questions into your curiosity pipeline."
+            description="Run discovery to generate new questions and pull from your active sources."
             action={
               <button
                 onClick={() => fetch("/api/discover").then(() => fetchOverview())}

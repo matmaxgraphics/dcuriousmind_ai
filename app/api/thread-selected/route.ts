@@ -12,7 +12,10 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       ...(result.results.length === 0
-        ? { message: "No drafts to turn into threads." }
+        ? {
+            message:
+              "No approved drafts. Threads are only generated from drafts you have approved — open a draft and approve it first.",
+          }
         : {}),
       ...result,
     });

@@ -110,7 +110,7 @@ export function Sidebar() {
         </div>
         <div className="mt-2.5 flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400">
           <CheckCircle2 className="h-3.5 w-3.5" />
-          <span>Wikenigma & Supabase Active</span>
+          <span>Pipeline connected</span>
         </div>
       </div>
     </aside>

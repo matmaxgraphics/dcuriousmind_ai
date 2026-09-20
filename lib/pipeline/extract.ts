@@ -11,6 +11,15 @@ export interface ExtractionItemResult {
   error?: string;
 }
 
+/**
+ * Extraction makes no AI calls, but each article is a network fetch plus a
+ * JSDOM parse. Uncapped, a large backlog can exceed the route's 300s budget
+ * and be killed mid-run.
+ */
+const MAX_EXTRACTIONS_PER_RUN = Number(
+  process.env.MAX_EXTRACTIONS_PER_RUN ?? 10
+);
+
 export interface ExtractionResult {
   extracted: number;
   rejected: number;
@@ -24,7 +33,8 @@ export async function runExtraction(): Promise<ExtractionResult> {
   const { data: articles, error } = await supabase
     .from("articles")
     .select("id, title, url")
-    .eq("status", "selected");
+    .eq("status", "selected")
+    .limit(MAX_EXTRACTIONS_PER_RUN);
 
   if (error) {
     throw new Error(`Failed to fetch selected articles: ${error.message}`);

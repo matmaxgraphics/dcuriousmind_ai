@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CardSkeleton } from "@/components/ui/loading-skeleton";
+import { DraftChecksPanel, type DraftChecksData } from "@/components/dashboard/draft-checks";
 
 interface DraftDetail {
   id: string;
@@ -26,6 +27,7 @@ interface DraftDetail {
   explanation: string;
   interesting_detail: string | null;
   takeaway: string | null;
+  checks?: DraftChecksData | null;
   threadId: string | null;
   article?: {
     id: string;
@@ -421,6 +423,8 @@ export default function DraftEditorPage({
                     </p>
                   </div>
                 )}
+
+                <DraftChecksPanel checks={draft.checks} />
 
                 <div>
                   <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">

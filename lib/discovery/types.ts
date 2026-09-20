@@ -17,7 +17,8 @@ export interface ContentSource {
    */
   name: string;
   baseUrl: string;
-  feedUrl: string;
+  /** RSS sources only. Generated sources have no feed. */
+  feedUrl?: string;
 
   /**
    * Per-source URL rule, applied after discovery. Returning false drops the

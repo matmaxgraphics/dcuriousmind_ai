@@ -5,6 +5,7 @@ import { validateExtractedArticle } from "@/lib/extractor/validate";
 import { saveExtractedContent } from "@/lib/db/articles";
 import { rewriteArticle } from "@/lib/rewrite/rewrite";
 import { saveDraft } from "@/lib/db/drafts";
+import { checkDraft } from "@/lib/review/checks";
 import { requireEditor } from "@/lib/auth/session";
 
 export async function POST(
@@ -63,8 +64,10 @@ export async function POST(
       content: articleContent,
     });
 
-    // 4. Save draft in database
-    const savedDraft = await saveDraft(article.id, draftContent);
+    // 4. Review the draft, then save it with the results attached
+    const checks = await checkDraft(draftContent, articleContent);
+
+    const savedDraft = await saveDraft(article.id, draftContent, checks);
 
     // 5. Update article status to processed
     await supabase

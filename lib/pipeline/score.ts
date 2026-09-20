@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase/server";
 import { scoreTopic } from "@/lib/selection/score";
 import { saveTopicScore } from "@/lib/db/topic-scores";
+import { decideSelection } from "@/lib/selection/decide";
 
 export interface ScoringArticleResult {
   articleId: string;
@@ -25,7 +26,7 @@ export interface ScoringResult {
  * picked up by the next run.
  */
 const MAX_ARTICLES_PER_RUN = Number(
-  process.env.MAX_ARTICLES_PER_SCORING_RUN ?? 25
+  process.env.MAX_ARTICLES_PER_SCORING_RUN ?? 15
 );
 
 export async function runScoring(): Promise<ScoringResult> {
@@ -83,9 +84,21 @@ export async function runScoring(): Promise<ScoringResult> {
         excerpt: article.excerpt,
       });
 
-      const saved = await saveTopicScore(article.id, score);
+      const decision = decideSelection(score);
 
-      const status = score.overall >= 7 ? "selected" : "rejected";
+      const saved = await saveTopicScore(article.id, {
+        ...score,
+        overall: decision.overall,
+      });
+
+      const status = decision.selected ? "selected" : "rejected";
+
+      if (!decision.selected) {
+        console.log(
+          `[pipeline] Rejected "${article.title.slice(0, 60)}": ${decision.rejectionReason}`
+        );
+      }
+
       if (status === "selected") {
         selectedCount++;
       } else {

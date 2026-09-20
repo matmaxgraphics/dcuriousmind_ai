@@ -1,10 +1,12 @@
 import { supabase } from "@/lib/supabase/server";
 
 import type { RewriteResult } from "@/lib/rewrite/rewrite";
+import type { DraftChecks } from "@/lib/review/checks";
 
 export async function saveDraft(
   articleId: string,
-  draft: RewriteResult
+  draft: RewriteResult,
+  checks?: DraftChecks
 ) {
   const { data, error } = await supabase
     .from("drafts")
@@ -17,6 +19,8 @@ export async function saveDraft(
       explanation: draft.explanation,
       interesting_detail: draft.interestingDetail,
       takeaway: draft.takeaway,
+
+      checks: checks ?? null,
     })
     .select()
     .single();

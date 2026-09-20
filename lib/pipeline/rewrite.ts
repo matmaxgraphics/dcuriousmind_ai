@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase/server";
 import { rewriteArticle } from "@/lib/rewrite/rewrite";
 import { saveDraft, getDraftByArticleId } from "@/lib/db/drafts";
+import { checkDraft } from "@/lib/review/checks";
 
 export interface RewriteItemResult {
   id: string;
@@ -11,8 +12,18 @@ export interface RewriteItemResult {
   error?: string;
 }
 
+/**
+ * Cost control. Each draft costs three AI calls — the rewrite plus the fact
+ * and quality checks — and every one carries source text, making this by far
+ * the heaviest stage. Groq's free tier allows 100,000 tokens per DAY, which
+ * an uncapped run can exhaust on its own. Whatever is not drafted stays in
+ * `extracted` and is picked up by the next run.
+ */
+const MAX_DRAFTS_PER_RUN = Number(process.env.MAX_DRAFTS_PER_RUN ?? 4);
+
 export interface RewriteResult {
   rewritten: number;
+  deferred: number;
   skipped: number;
   errors: number;
   results: RewriteItemResult[];
@@ -24,7 +35,8 @@ export async function runRewrite(): Promise<RewriteResult> {
   const { data: articles, error } = await supabase
     .from("articles")
     .select("id, title, content")
-    .eq("status", "extracted");
+    .eq("status", "extracted")
+    .limit(MAX_DRAFTS_PER_RUN);
 
   if (error) {
     throw new Error(`Failed to fetch extracted articles: ${error.message}`);
@@ -36,6 +48,7 @@ export async function runRewrite(): Promise<RewriteResult> {
       rewritten: 0,
       skipped: 0,
       errors: 0,
+      deferred: 0,
       results: [],
     };
   }
@@ -82,7 +95,11 @@ export async function runRewrite(): Promise<RewriteResult> {
         content: article.content,
       });
 
-      const saved = await saveDraft(article.id, draft);
+      // Automated review. Never throws, so a check failure cannot cost us
+      // the draft we just paid to generate.
+      const checks = await checkDraft(draft, article.content);
+
+      const saved = await saveDraft(article.id, draft, checks);
 
       await supabase
         .from("articles")
@@ -111,10 +128,17 @@ export async function runRewrite(): Promise<RewriteResult> {
   const skippedCount = results.filter((r) => r.status === "skipped").length;
   const errorCount = results.filter((r) => r.status === "error").length;
 
+  // Anything still sitting in `extracted` after this run.
+  const { count: remaining } = await supabase
+    .from("articles")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "extracted");
+
   const result: RewriteResult = {
     rewritten: rewrittenCount,
     skipped: skippedCount,
     errors: errorCount,
+    deferred: remaining ?? 0,
     results,
   };
 

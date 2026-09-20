@@ -64,7 +64,7 @@ export default function SettingsPage() {
     {
       label: "1. Discover RSS Articles",
       endpoint: "discover",
-      description: "Pulls new entries from Wikenigma RSS feed into Supabase articles table.",
+      description: "Generates grounded questions and pulls new entries from every active source.",
     },
     {
       label: "2. AI Topic Scoring",
@@ -74,17 +74,17 @@ export default function SettingsPage() {
     {
       label: "3. Extract Selected Articles",
       endpoint: "extract-selected",
-      description: "Scrapes full web content for topics scored >= 7.0.",
+      description: "Fetches full content for selected topics. Capped per run.",
     },
     {
       label: "4. Rewrite into Drafts",
       endpoint: "rewrite-selected",
-      description: "Transforms extracted content into d_CuriousMind curiosity explanations.",
+      description: "Writes drafts, then fact-checks and quality-checks each one. Capped per run.",
     },
     {
       label: "5. Generate X Threads",
       endpoint: "thread-selected",
-      description: "Converts approved drafts into structured 5-7 tweet X threads.",
+      description: "Converts APPROVED drafts into 5-7 tweet threads. Approve a draft first, or this does nothing.",
     },
   ];
 
@@ -111,7 +111,7 @@ export default function SettingsPage() {
             <Rss className="h-4 w-4 text-amber-500" />
           </div>
           <p className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-            Wikenigma RSS
+            Content sources
           </p>
           <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
             <CheckCircle2 className="h-3.5 w-3.5" /> Active Feed Enabled

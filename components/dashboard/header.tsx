@@ -80,7 +80,7 @@ export function Header() {
             onClick={() => handleRunPipelineStep("discover")}
             disabled={isTriggering}
             className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-xs hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors"
-            title="Discover articles from Wikenigma RSS"
+            title="Generate questions and pull from all active sources"
           >
             <RefreshCw
               className={`h-3.5 w-3.5 ${isTriggering ? "animate-spin text-indigo-500" : ""}`}

@@ -14,6 +14,8 @@ import {
   Trash2,
   Plus,
   ExternalLink,
+  Send,
+  Copy,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CardSkeleton } from "@/components/ui/loading-skeleton";
@@ -55,6 +57,9 @@ export default function ThreadEditorPage({
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const fetchThread = async () => {
     setLoading(true);
@@ -176,6 +181,62 @@ export default function ThreadEditorPage({
     }
   };
 
+  // Manual posting path: the thread is ready long before the X API is paid
+  // for, so make it trivial to paste into X by hand. Numbered, blank line
+  // between tweets, so each block is one post.
+  const handleCopy = async () => {
+    const text = tweets
+      .map((t, idx) => [`${idx + 1}/${tweets.length}`, t.text].join("\n"))
+      .join("\n\n---\n\n");
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      alert("Could not access the clipboard. Select and copy the tweets manually.");
+    }
+  };
+
+  const handlePublish = async () => {
+    // Posting to X is public and cannot be undone, so it takes an explicit
+    // confirmation naming the account and the tweet count.
+    if (
+      !confirm(
+        `Publish this thread to X as @d_CuriousMind?
+
+` +
+          `${tweets.length} tweets will be posted publicly, chained as replies.
+
+` +
+          `This cannot be undone from here — you would have to delete the posts on X.`
+      )
+    ) {
+      return;
+    }
+
+    setPublishing(true);
+
+    try {
+      const res = await fetch(`/api/threads/${id}/publish`, {
+        method: "POST",
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Publishing failed.");
+      }
+
+      setPublishedUrl(data.url);
+      setThreadStatus("published");
+      await fetchThread();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Publishing failed.");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const handleRegenerate = async () => {
     if (
       !confirm(
@@ -293,6 +354,33 @@ export default function ThreadEditorPage({
           >
             <CheckCircle className="h-3.5 w-3.5" />
             Approve Thread
+          </button>
+
+          <button
+            onClick={handleCopy}
+            title="Copy all tweets, numbered, for pasting into X by hand"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-xs hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            {copied ? "Copied!" : "Copy Thread"}
+          </button>
+
+          <button
+            onClick={handlePublish}
+            disabled={
+              publishing || threadStatus !== "approved" || !isValid
+            }
+            title={
+              threadStatus === "published"
+                ? "Already published"
+                : threadStatus !== "approved"
+                ? "Approve the thread before publishing"
+                : "Publish this thread to X"
+            }
+            className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <Send className="h-3.5 w-3.5" />
+            {publishing ? "Publishing..." : "Publish to X"}
           </button>
         </div>
       </div>

@@ -72,6 +72,42 @@ async function fetchFeed(url: string): Promise<string> {
   throw lastError;
 }
 
+const ENTITIES: Record<string, string> = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&apos;": "'",
+  "&nbsp;": " ",
+  "&hellip;": "…",
+  "&mdash;": "—",
+  "&ndash;": "–",
+  "&rsquo;": "’",
+  "&lsquo;": "‘",
+  "&ldquo;": "“",
+  "&rdquo;": "”",
+};
+
+/**
+ * Feeds hand back markup and entities in titles — ScienceDaily emits
+ * `<em>T. Rex</em>` and Smithsonian emits `Brevard Zoo&#39;s`. Left as-is,
+ * that text goes straight into the scoring prompt and then into drafts.
+ */
+export function cleanFeedText(value: string): string {
+  return value
+    .replace(/<[^>]*>/g, "")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#[xX]([0-9a-fA-F]+);/g, (_, hex) =>
+      String.fromCharCode(parseInt(hex, 16))
+    )
+    .replace(
+      /&[a-zA-Z]+;/g,
+      (entity) => ENTITIES[entity.toLowerCase()] ?? entity
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Compares hostnames ignoring a leading `www.`. */
 export function hostMatches(url: URL, expected: string): boolean {
   const strip = (host: string) => host.replace(/^www\./, "").toLowerCase();
@@ -105,11 +141,13 @@ export function createRssSource(config: RssSourceConfig): ContentSource {
       return feed.items
         .filter((item) => item.link && item.title)
         .map((item) => ({
-          title: item.title!.trim(),
+          title: cleanFeedText(item.title!),
           url: item.link!.trim(),
           source: config.name,
           category: config.category,
-          excerpt: item.contentSnippet?.trim(),
+          excerpt: item.contentSnippet
+            ? cleanFeedText(item.contentSnippet)
+            : undefined,
           publishedAt: item.pubDate ?? item.isoDate,
           discoveredAt: new Date().toISOString(),
         }));

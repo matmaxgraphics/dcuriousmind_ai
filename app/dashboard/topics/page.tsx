@@ -136,7 +136,7 @@ export default function TopicsPage() {
             Topic Repository
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Curated questions discovered from Wikenigma RSS feeds.
+            Generated questions and articles from your active sources.
           </p>
         </div>
 
@@ -215,7 +215,7 @@ export default function TopicsPage() {
       ) : filteredTopics.length === 0 ? (
         <EmptyState
           title="No topics match your filter"
-          description="Try adjusting your search terms or filter criteria, or run discovery to pull new Wikenigma articles."
+          description="Try adjusting your search or filters, or run discovery to bring in new topics."
           action={
             <button
               onClick={() => {
@@ -246,7 +246,7 @@ export default function TopicsPage() {
                 {filteredTopics.map((topic) => {
                   const scoreObj = topic.topic_scores?.[0];
                   const draftObj = topic.drafts?.[0];
-                  const sourceName = topic.sources?.name || "Wikenigma";
+                  const sourceName = topic.sources?.name || "Unknown source";
 
                   return (
                     <tr

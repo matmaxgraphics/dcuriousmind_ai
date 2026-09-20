@@ -1,5 +1,6 @@
 import type { ContentSource } from "./types";
 import { createRssSource, hostMatches } from "./rss";
+import { generatedQuestionsSource } from "./generated";
 
 /**
  * The registered content sources.
@@ -82,7 +83,29 @@ const discoverMagazine = createRssSource({
   },
 });
 
+/**
+ * Mental Floss — the closest thing to an everyday-phenomenon feed that
+ * actually publishes RSS. Measured yield through the selection gate was the
+ * best of any feed tested ("Is It Really Illegal to Burn Money?" passes,
+ * "The Best Coffee Cities in America, Ranked" does not), and it carries ~80
+ * items per fetch, so even a low pass rate produces candidates.
+ */
+const mentalFloss = createRssSource({
+  name: "Mental Floss",
+  baseUrl: "https://www.mentalfloss.com",
+  feedUrl: "https://www.mentalfloss.com/rss.xml",
+  category: "everyday",
+  accepts(url) {
+    if (!hostMatches(url, "mentalfloss.com")) return false;
+    if (url.pathname === "/") return false;
+
+    return true;
+  },
+});
+
 export const contentSources: ContentSource[] = [
+  generatedQuestionsSource,
+  mentalFloss,
   wikenigma,
   scienceDaily,
   scienceAlert,
