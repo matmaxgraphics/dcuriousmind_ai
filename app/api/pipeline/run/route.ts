@@ -15,7 +15,11 @@ import {
 // response can never be served in place of an actual run.
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+// 300 exceeds this Vercel plan's limit: the function then fails to
+// initialise and every request returns an empty 500 before any code runs.
+// 120 is verified to load on this account. Raise only after confirming the
+// plan allows it.
+export const maxDuration = 120;
 
 async function handle(request: Request) {
   const auth = authorizePipelineRequest(request);

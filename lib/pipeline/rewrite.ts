@@ -19,7 +19,7 @@ export interface RewriteItemResult {
  * an uncapped run can exhaust on its own. Whatever is not drafted stays in
  * `extracted` and is picked up by the next run.
  */
-const MAX_DRAFTS_PER_RUN = Number(process.env.MAX_DRAFTS_PER_RUN ?? 4);
+const MAX_DRAFTS_PER_RUN = Number(process.env.MAX_DRAFTS_PER_RUN ?? 1);
 
 export interface RewriteResult {
   rewritten: number;

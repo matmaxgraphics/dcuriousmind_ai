@@ -26,7 +26,7 @@ export interface ScoringResult {
  * picked up by the next run.
  */
 const MAX_ARTICLES_PER_RUN = Number(
-  process.env.MAX_ARTICLES_PER_SCORING_RUN ?? 15
+  process.env.MAX_ARTICLES_PER_SCORING_RUN ?? 8
 );
 
 export async function runScoring(): Promise<ScoringResult> {

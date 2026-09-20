@@ -23,6 +23,8 @@ export interface PipelineRunResult {
   success: boolean;
   /** Failures inside stages that themselves completed. */
   itemErrors: number;
+  /** Stages not started because the run budget was nearly spent. */
+  skippedForTime: StageName[];
   /** Set when another run held the lock and this one did not execute. */
   skipped?: true;
   runId: string | null;
@@ -72,6 +74,18 @@ function countOf<T, K extends keyof T>(
   return typeof value === "number" ? value : 0;
 }
 
+/**
+ * How long a run may take before it stops starting new work.
+ *
+ * The serverless function is killed at `maxDuration` with no chance to clean
+ * up — the pipeline_runs row would stay 'running' and hold the lock until the
+ * 15-minute stale reclaim. So stages stop voluntarily with headroom to spare
+ * and leave the rest queued; the next run picks it up.
+ *
+ * Kept below the route's maxDuration (120s), not equal to it.
+ */
+const RUN_BUDGET_MS = Number(process.env.PIPELINE_BUDGET_MS ?? 95_000);
+
 async function runStage<T>(
   name: StageName,
   stage: () => Promise<T>
@@ -116,11 +130,37 @@ export async function runPipeline(
   }
 
   const startedAt = new Date();
+  const deadline = startedAt.getTime() + RUN_BUDGET_MS;
 
-  const discovery = await runStage("discovery", runDiscovery);
-  const scoring = await runStage("scoring", runScoring);
-  const extraction = await runStage("extraction", runExtraction);
-  const rewrite = await runStage("rewrite", runRewrite);
+  const skippedForTime: StageName[] = [];
+
+  /** Runs a stage only if there is budget left for it. */
+  const stageIfTime = async <T>(
+    name: StageName,
+    stage: () => Promise<T>,
+    reserveMs: number
+  ): Promise<StageOutcome<T>> => {
+    if (Date.now() + reserveMs > deadline) {
+      console.warn(
+        `[pipeline] Skipping "${name}" — not enough time left in the run budget`
+      );
+
+      skippedForTime.push(name);
+
+      return {
+        status: "failed",
+        error: "Skipped: insufficient time left in the run budget.",
+      };
+    }
+
+    return runStage(name, stage);
+  };
+
+  // Reserves are rough lower bounds for "can this stage do anything useful".
+  const discovery = await stageIfTime("discovery", runDiscovery, 20_000);
+  const scoring = await stageIfTime("scoring", runScoring, 10_000);
+  const extraction = await stageIfTime("extraction", runExtraction, 8_000);
+  const rewrite = await stageIfTime("rewrite", runRewrite, 25_000);
 
   const finishedAt = new Date();
 
@@ -132,7 +172,11 @@ export async function runPipeline(
       ["rewrite", rewrite],
     ] as const
   )
-    .filter(([, outcome]) => outcome.status === "failed")
+    .filter(
+      ([name, outcome]) =>
+        outcome.status === "failed" &&
+        !skippedForTime.includes(name as StageName)
+    )
     .map(([name]) => name as StageName);
 
   const durationMs = finishedAt.getTime() - startedAt.getTime();
@@ -187,6 +231,7 @@ export async function runPipeline(
   return {
     success,
     itemErrors,
+    skippedForTime,
     runId,
     startedAt: startedAt.toISOString(),
     finishedAt: finishedAt.toISOString(),

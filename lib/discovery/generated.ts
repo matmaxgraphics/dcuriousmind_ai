@@ -21,7 +21,7 @@ import { fetchWikipediaPage, type WikipediaPage } from "./wikipedia";
 export const GENERATED_SOURCE_NAME = "Generated Questions";
 
 const QUESTIONS_PER_RUN = Number(
-  process.env.QUESTIONS_PER_GENERATION_RUN ?? 8
+  process.env.QUESTIONS_PER_GENERATION_RUN ?? 4
 );
 
 /**
