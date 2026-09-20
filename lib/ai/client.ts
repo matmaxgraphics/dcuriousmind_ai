@@ -19,7 +19,14 @@ export const DEFAULT_AI_MODEL =
   process.env.AI_MODEL ||
   process.env.GROQ_MODEL ||
   process.env.OPENAI_MODEL ||
-  (isGroq ? "groq/compound-mini" : "gpt-4o-mini");
+  // Verified available on this account and confirmed to honour JSON mode.
+  //
+  // NOT a compound/agentic model: groq/compound-mini was the original default
+  // and caps at 30 requests per minute, which the scoring loop trips
+  // immediately, and it routes internally so JSON output is less reliable.
+  // llama-3.3-70b-versatile was tried and 404s — it is not on this account.
+  // Check `GET /openai/v1/models` before changing this.
+  (isGroq ? "openai/gpt-oss-120b" : "gpt-4o-mini");
 
 export const openai = new OpenAI({
   apiKey,

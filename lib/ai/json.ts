@@ -21,6 +21,10 @@ export async function generateJson<T>(
     openai.chat.completions.create({
       model: DEFAULT_AI_MODEL,
       response_format: { type: "json_object" },
+      // Without an explicit ceiling the provider's default can cut a long
+      // response mid-object. Observed for real: question generation came back
+      // ending '"wikipe' and the parse threw.
+      max_completion_tokens: 4000,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
@@ -39,8 +43,10 @@ export async function generateJson<T>(
   } catch {
     // Include a snippet: knowing what came back instead is the difference
     // between a five-minute fix and an afternoon.
+    // Report the length and the tail: a response that ends mid-token is
+    // truncation, which looks nothing like a model ignoring the format.
     throw new Error(
-      `${label}: expected JSON, got "${text.slice(0, 120)}"`
+      `${label}: expected JSON, got ${text.length} chars ending "...${text.slice(-60)}"`
     );
   }
 }

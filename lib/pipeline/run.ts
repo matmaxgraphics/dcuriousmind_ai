@@ -21,6 +21,8 @@ export type StageOutcome<T> =
 export interface PipelineRunResult {
   /** True only when every stage completed. */
   success: boolean;
+  /** Failures inside stages that themselves completed. */
+  itemErrors: number;
   /** Set when another run held the lock and this one did not execute. */
   skipped?: true;
   runId: string | null;
@@ -40,6 +42,21 @@ export interface PipelineSkippedResult {
   skipped: true;
   runId: null;
   reason: string;
+}
+
+/**
+ * Per-item errors inside a stage that otherwise completed.
+ *
+ * A stage only lands in `failedStages` when it throws. Scoring catches each
+ * article's error and carries on, so a run where all 15 articles failed still
+ * reported success — which is exactly the run you most want flagged.
+ */
+function errorsOf<T>(outcome: StageOutcome<T>): number {
+  if (outcome.status !== "ok") return 0;
+
+  const value = (outcome.result as { errors?: unknown }).errors;
+
+  return typeof value === "number" ? value : 0;
 }
 
 function countOf<T, K extends keyof T>(
@@ -119,12 +136,22 @@ export async function runPipeline(
     .map(([name]) => name as StageName);
 
   const durationMs = finishedAt.getTime() - startedAt.getTime();
-  const success = failedStages.length === 0;
+
+  const itemErrors =
+    errorsOf(discovery) +
+    errorsOf(scoring) +
+    errorsOf(extraction) +
+    errorsOf(rewrite);
+
+  // Clean means: no stage threw AND nothing inside a stage failed.
+  const success = failedStages.length === 0 && itemErrors === 0;
 
   console.log(
     success
       ? `[pipeline] Pipeline complete in ${durationMs}ms`
-      : `[pipeline] Pipeline finished in ${durationMs}ms with failed stages: ${failedStages.join(", ")}`
+      : `[pipeline] Pipeline finished in ${durationMs}ms — failed stages: ${
+          failedStages.length > 0 ? failedStages.join(", ") : "none"
+        }; item errors: ${itemErrors}`
   );
 
   // Always release the lock, even if recording the outcome fails — otherwise
@@ -134,7 +161,9 @@ export async function runPipeline(
     durationMs,
     failedStages,
     error:
-      failedStages.length > 0
+      itemErrors > 0 && failedStages.length === 0
+        ? `${itemErrors} item(s) failed inside otherwise-completed stages.`
+        : failedStages.length > 0
         ? failedStages
             .map((name) => {
               const outcome = { discovery, scoring, extraction, rewrite }[name];
@@ -157,6 +186,7 @@ export async function runPipeline(
 
   return {
     success,
+    itemErrors,
     runId,
     startedAt: startedAt.toISOString(),
     finishedAt: finishedAt.toISOString(),

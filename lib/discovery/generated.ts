@@ -24,8 +24,14 @@ const QUESTIONS_PER_RUN = Number(
   process.env.QUESTIONS_PER_GENERATION_RUN ?? 8
 );
 
-/** How many recent titles to show the generator so it stops repeating itself. */
-const EXCLUSION_WINDOW = 100;
+/**
+ * How many recent titles to show the generator so it stops repeating itself.
+ *
+ * Kept small on purpose. At 100 the list dominated the prompt — and most
+ * entries are RSS headlines the generator would never produce anyway, so they
+ * cost tokens without preventing repeats.
+ */
+const EXCLUSION_WINDOW = 40;
 
 const SYSTEM_PROMPT = `
 You generate topic ideas for d_CuriousMind.
@@ -113,7 +119,8 @@ interface GeneratedQuestion {
 async function recentTitles(): Promise<string[]> {
   const { data, error } = await supabase
     .from("articles")
-    .select("title")
+    .select("title, sources!inner(name)")
+    .eq("sources.name", GENERATED_SOURCE_NAME)
     .order("discovered_at", { ascending: false })
     .limit(EXCLUSION_WINDOW);
 
